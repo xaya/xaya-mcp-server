@@ -6,6 +6,7 @@ import logging
 from mcp.server.fastmcp import FastMCP
 
 from blockchain import Node
+from tools import XayaTools
 
 
 def main ():
@@ -54,7 +55,19 @@ def main ():
     log_level="INFO",
   )
 
-  # MCP tools will be added here later
+
+  # Create the tool provider and add all its methods to the MCP server.
+  tool_provider = XayaTools (node)
+  mcp.add_tool (tool_provider.nameToTokenId)
+  mcp.add_tool (tool_provider.tokenIdToName)
+  mcp.add_tool (tool_provider.getOwner)
+  mcp.add_tool (tool_provider.getOwnerById)
+  mcp.add_tool (tool_provider.getWchiBalance)
+  mcp.add_tool (tool_provider.getWchiAllowance)
+  mcp.add_tool (tool_provider.isApprovedForAll)
+  mcp.add_tool (tool_provider.getApproved)
+  mcp.add_tool (tool_provider.getChainInfo)
+
 
   logger.info ("Starting Streamable HTTP transport")
   mcp.run (transport="streamable-http")

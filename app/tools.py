@@ -1,0 +1,106 @@
+from web3.exceptions import ContractLogicError
+
+
+class XayaTools:
+  """
+  Provides tools for interacting with the Xaya blockchain.
+  """
+
+  def __init__ (self, node):
+    self.node = node
+
+  def nameToTokenId (self, ns, name):
+    """
+    Converts a Xaya name (namespace and name) to its corresponding token ID.
+    """
+    try:
+      return self.node.accounts.functions.tokenIdForName (ns, name).call ()
+    except ContractLogicError as e:
+      return f"Error: {e}"
+
+  def tokenIdToName (self, tokenId):
+    """
+    Converts a token ID to its corresponding Xaya name (namespace and name).
+    """
+    try:
+      ns, name = self.node.accounts.functions.tokenIdToName (tokenId).call ()
+      return {"ns": ns, "name": name}
+    except ContractLogicError as e:
+      return f"Error: {e}"
+
+  def getOwner (self, ns, name):
+    """
+    Gets the owner of a Xaya name.
+    Returns the owner's address if the name is registered, otherwise an error.
+    """
+    try:
+      tokenId = self.node.accounts.functions.tokenIdForName (ns, name).call ()
+      return self.node.accounts.functions.ownerOf (tokenId).call ()
+    except ContractLogicError as e:
+      # This can happen if the name is not registered.
+      return f"Name not found or error: {e}"
+
+  def getOwnerById (self, tokenId):
+    """
+    Gets the owner of a Xaya name by its token ID.
+    Returns the owner's address if the token ID is valid, otherwise an error.
+    """
+    try:
+      return self.node.accounts.functions.ownerOf (tokenId).call ()
+    except ContractLogicError as e:
+      # This can happen if the token ID is invalid.
+      return f"Token ID not found or error: {e}"
+
+  def getWchiBalance (self, owner):
+    """
+    Gets the WCHI balance of a given address.
+    The balance is returned as a formatted string with the correct number of decimals.
+    """
+    try:
+      balance = self.node.wchi.functions.balanceOf (owner).call ()
+      decimals = self.node.wchi.functions.decimals ().call ()
+      return f"{balance / 10**decimals} WCHI"
+    except Exception as e:
+      return f"Error: {e}"
+
+  def getWchiAllowance (self, owner, spender):
+    """
+    Gets the WCHI allowance for a spender from an owner.
+    The allowance is returned as a formatted string with the correct number of decimals.
+    """
+    try:
+      allowance = self.node.wchi.functions.allowance (owner, spender).call ()
+      decimals = self.node.wchi.functions.decimals ().call ()
+      return f"{allowance / 10**decimals} WCHI"
+    except Exception as e:
+      return f"Error: {e}"
+
+  def isApprovedForAll (self, owner, operator):
+    """
+    Checks if an operator is approved for all of an owner's Xaya account NFTs.
+    """
+    try:
+      return self.node.accounts.functions.isApprovedForAll (owner, operator).call ()
+    except Exception as e:
+      return f"Error: {e}"
+
+  def getApproved (self, tokenId):
+    """
+    Gets the approved address for a single Xaya account NFT.
+    """
+    try:
+      return self.node.accounts.functions.getApproved (tokenId).call ()
+    except ContractLogicError as e:
+      return f"Token ID not found or error: {e}"
+
+  def getChainInfo (self):
+    """
+    Returns the chain ID and Xaya contract addresses used by the server.
+    """
+    return {
+      "chainId": self.node.w3.eth.chain_id,
+      "wchiAddress": self.node.wchi.address,
+      "accountsAddress": self.node.accounts.address,
+      "delegationAddress": self.node.delegation.address,
+    }
+

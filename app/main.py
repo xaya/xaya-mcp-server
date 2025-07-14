@@ -2,11 +2,14 @@
 
 import argparse
 import logging
+
 from mcp.server.fastmcp import FastMCP
+
+from blockchain import Node
 
 
 def main ():
-  # Configure logging to match FastMCP style
+  # Configure logging
   logging.basicConfig (
     level=logging.INFO,
     format="%(levelname)s:     %(message)s",
@@ -19,9 +22,25 @@ def main ():
     "--port",
     type=int,
     default=8000,
-    help="Port to bind the server to (default: 8000)",
+    help="Port to bind the server to",
+  )
+  parser.add_argument (
+    "--rpc_url",
+    required=True,
+    help="EVM node JSON-RPC endpoint",
+  )
+  parser.add_argument (
+    "--delegation_contract",
+    required=True,
+    help="Address of the XayaDelegation contract",
   )
   args = parser.parse_args ()
+
+  try:
+    node = Node (args.rpc_url, args.delegation_contract)
+  except Exception as e:
+    logger.error ("Failed to initialize blockchain node: %s", e)
+    return
 
   logger.info (f"Initializing Xaya MCP server on 0.0.0.0:{args.port}")
   logger.info (f"Streamable HTTP endpoint will be available at http://0.0.0.0:{args.port}/mcp/")
@@ -43,3 +62,4 @@ def main ():
 
 if __name__ == "__main__":
   main ()
+

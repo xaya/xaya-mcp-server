@@ -66,6 +66,7 @@ def main ():
   mcp.add_tool (tool_provider.getWchiAllowance)
   mcp.add_tool (tool_provider.isApprovedForAll)
   mcp.add_tool (tool_provider.getApproved)
+  mcp.add_tool (tool_provider.getDelegationPermissions)
   mcp.add_tool (tool_provider.getChainInfo)
 
 

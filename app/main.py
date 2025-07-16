@@ -5,8 +5,9 @@ import logging
 
 from mcp.server.fastmcp import FastMCP
 
-from blockchain import Node
-from tools import XayaTools
+from blockchain import Node, StatsSubgraph
+from tools_contract import Tools as ContractTools
+from tools_subgraph import Tools as SubgraphTools
 
 
 def main ():
@@ -35,10 +36,16 @@ def main ():
     required=True,
     help="Address of the XayaDelegation contract",
   )
+  parser.add_argument (
+    "--subgraph",
+    required=True,
+    help="The Graph endpoint URL for the subgraph",
+  )
   args = parser.parse_args ()
 
   try:
     node = Node (args.rpc_url, args.delegation_contract)
+    subgraph = StatsSubgraph (args.subgraph)
   except Exception as e:
     logger.error ("Failed to initialize blockchain node: %s", e)
     return
@@ -55,20 +62,27 @@ def main ():
     log_level="INFO",
   )
 
+  # Create the tool providers
+  contract_tools = ContractTools (node)
+  subgraph_tools = SubgraphTools (subgraph, contract_tools)
 
-  # Create the tool provider and add all its methods to the MCP server.
-  tool_provider = XayaTools (node)
-  mcp.add_tool (tool_provider.nameToTokenId)
-  mcp.add_tool (tool_provider.tokenIdToName)
-  mcp.add_tool (tool_provider.getOwner)
-  mcp.add_tool (tool_provider.getOwnerById)
-  mcp.add_tool (tool_provider.getWchiBalance)
-  mcp.add_tool (tool_provider.getWchiAllowance)
-  mcp.add_tool (tool_provider.isApprovedForAll)
-  mcp.add_tool (tool_provider.getApproved)
-  mcp.add_tool (tool_provider.getDelegationPermissions)
-  mcp.add_tool (tool_provider.getChainInfo)
+  # Add contract tools to the MCP server
+  mcp.add_tool (contract_tools.nameToTokenId)
+  mcp.add_tool (contract_tools.tokenIdToName)
+  mcp.add_tool (contract_tools.getOwner)
+  mcp.add_tool (contract_tools.getOwnerById)
+  mcp.add_tool (contract_tools.getWchiBalance)
+  mcp.add_tool (contract_tools.getWchiAllowance)
+  mcp.add_tool (contract_tools.isApprovedForAll)
+  mcp.add_tool (contract_tools.getApproved)
+  mcp.add_tool (contract_tools.getDelegationPermissions)
+  mcp.add_tool (contract_tools.getChainInfo)
 
+  # Add subgraph tools to the MCP server
+  mcp.add_tool (subgraph_tools.getNameRegistration)
+  mcp.add_tool (subgraph_tools.getNamesOwnedBy)
+  mcp.add_tool (subgraph_tools.getMovesForGame)
+  mcp.add_tool (subgraph_tools.getMovesForName)
 
   logger.info ("Starting Streamable HTTP transport")
   mcp.run (transport="streamable-http")
@@ -76,4 +90,3 @@ def main ():
 
 if __name__ == "__main__":
   main ()
-

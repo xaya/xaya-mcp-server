@@ -1,9 +1,32 @@
 import json
 import logging
 import os.path
+import requests
 
 from web3 import Web3
 from web3.middleware import ExtraDataToPOAMiddleware
+
+class StatsSubgraph:
+  """
+  Helper class to query the stats subgraph.
+  """
+
+  def __init__ (self, url):
+    self.url = url
+
+  def query (self, query):
+    """
+    Runs a GraphQL query against the configured subgraph.
+    If the query is successful, the `data` object from the response
+    is returned.  Otherwise an exception is raised.
+    """
+    logging.info ("Running GraphQL query:\\n%s", query)
+    r = requests.post (self.url, json={"query": query})
+    r.raise_for_status ()
+    res = r.json ()
+    if "errors" in res:
+      raise RuntimeError (f"GraphQL query failed: {res['errors']}")
+    return res["data"]
 
 class Node:
   """

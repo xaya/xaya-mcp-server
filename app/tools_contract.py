@@ -1,9 +1,9 @@
 from web3.exceptions import ContractLogicError
 
 
-class XayaTools:
+class Tools:
   """
-  Provides tools for interacting with the Xaya blockchain.
+  Provides tools for interacting with the Xaya blockchain smart contracts.
   """
 
   def __init__ (self, node):
@@ -167,4 +167,3 @@ class XayaTools:
         "fullAccess": full_access,
         "fallbackAccess": fallback_access
     }
-

@@ -8,9 +8,9 @@ to provide comprehensive access to Xaya data.
 
 This server provides tools for accessing and querying:
 
-• Xaya account name resolution (converting between human-readable names and token IDs)
-• Account ownership information and NFT approvals  
-• WCHI token balances and allowances
-• Delegation permissions for fine-grained account access control
-• Account registration history and metadata
-• Move history for specific accounts and games
+- Xaya account name resolution (converting between human-readable names and token IDs)
+- Account ownership information and NFT approvals  
+- WCHI token balances and allowances
+- Delegation permissions for fine-grained account access control
+- Account registration history and metadata
+- Move history for specific accounts and games

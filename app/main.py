@@ -4,12 +4,15 @@ import argparse
 import anyio
 import functools
 import logging
+import os
 
 from mcp.server.fastmcp import FastMCP
+from eth_account import Account
 
 from blockchain import Node, StatsSubgraph
 from tools_contract import Tools as ContractTools
 from tools_subgraph import Tools as SubgraphTools
+from tools_moves import Tools as MovesTools
 
 
 def _add_tool_with_error_handling(mcp, tool_func):
@@ -57,6 +60,18 @@ async def main ():
     default="INFO",
     help="Set the log level (e.g., DEBUG, INFO, WARNING)",
   )
+  parser.add_argument (
+    "--gas_gwei_prio",
+    type=int,
+    default=0,
+    help="Priority gas price in Gwei (0 means not set)",
+  )
+  parser.add_argument (
+    "--gas_gwei_max",
+    type=int,
+    default=0,
+    help="Maximum gas price in Gwei (0 means not set)",
+  )
   args = parser.parse_args ()
 
   # Update logging level from arguments
@@ -65,6 +80,25 @@ async def main ():
     format="%(levelname)s:     %(message)s",
   )
   logger = logging.getLogger ("xaya-mcp")
+
+  # Configure gas settings
+  gas_config = None
+  if args.gas_gwei_prio > 0 or args.gas_gwei_max > 0:
+    gas_config = {}
+    if args.gas_gwei_prio > 0:
+      gas_config['prio'] = args.gas_gwei_prio
+    if args.gas_gwei_max > 0:
+      gas_config['max'] = args.gas_gwei_max
+
+  # Configure operator account from environment variable
+  operator_account = None
+  privkey = os.environ.get('PRIVKEY')
+  if privkey:
+    try:
+      operator_account = Account.from_key(privkey)
+      logger.info(f"Operator address configured: {operator_account.address}")
+    except Exception as e:
+      logger.error("Failed to create account from PRIVKEY: %s", e)
 
   try:
     node = await Node.create (args.rpc_url, args.delegation_contract)
@@ -86,8 +120,9 @@ async def main ():
   )
 
   # Create the tool providers
-  contract_tools = ContractTools (node)
+  contract_tools = ContractTools (node, gas_config, operator_account)
   subgraph_tools = SubgraphTools (subgraph, contract_tools)
+  moves_tools = MovesTools (operator_account, contract_tools)
 
   # Add contract tools to the MCP server
   _add_tool_with_error_handling (mcp, contract_tools.nameToTokenId)
@@ -99,13 +134,18 @@ async def main ():
   _add_tool_with_error_handling (mcp, contract_tools.isApprovedForAll)
   _add_tool_with_error_handling (mcp, contract_tools.getApproved)
   _add_tool_with_error_handling (mcp, contract_tools.getDelegationPermissions)
-  _add_tool_with_error_handling (mcp, contract_tools.getChainInfo)
+  _add_tool_with_error_handling (mcp, contract_tools.getInfo)
 
   # Add subgraph tools to the MCP server
   _add_tool_with_error_handling (mcp, subgraph_tools.getNameRegistration)
   _add_tool_with_error_handling (mcp, subgraph_tools.getNamesOwnedBy)
   _add_tool_with_error_handling (mcp, subgraph_tools.getMovesForGame)
   _add_tool_with_error_handling (mcp, subgraph_tools.getMovesForName)
+
+  # Add moves tools to the MCP server
+  _add_tool_with_error_handling (mcp, moves_tools.hasMovePermission)
+  _add_tool_with_error_handling (mcp, moves_tools.sendMove)
+  _add_tool_with_error_handling (mcp, moves_tools.getTransactionStatus)
 
   logger.info ("Starting Streamable HTTP transport")
   await mcp.run_streamable_http_async ()

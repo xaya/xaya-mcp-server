@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import functools
 import logging
 
 from mcp.server.fastmcp import FastMCP
@@ -9,6 +10,20 @@ from blockchain import Node, StatsSubgraph
 from tools_contract import Tools as ContractTools
 from tools_subgraph import Tools as SubgraphTools
 
+
+def _add_tool_with_error_handling(mcp, tool_func):
+  """
+  Helper method to add a tool to the MCP server with exception handling.
+  Wraps the tool function to catch any exceptions and return them as "Error: ..." strings.
+  """
+  @functools.wraps(tool_func)
+  def wrapper(*args, **kwargs):
+    try:
+      return tool_func(*args, **kwargs)
+    except Exception as e:
+      return f"Error: {e}"
+  
+  mcp.add_tool(wrapper)
 
 def main ():
   # Configure logging
@@ -67,22 +82,22 @@ def main ():
   subgraph_tools = SubgraphTools (subgraph, contract_tools)
 
   # Add contract tools to the MCP server
-  mcp.add_tool (contract_tools.nameToTokenId)
-  mcp.add_tool (contract_tools.tokenIdToName)
-  mcp.add_tool (contract_tools.getOwner)
-  mcp.add_tool (contract_tools.getOwnerById)
-  mcp.add_tool (contract_tools.getWchiBalance)
-  mcp.add_tool (contract_tools.getWchiAllowance)
-  mcp.add_tool (contract_tools.isApprovedForAll)
-  mcp.add_tool (contract_tools.getApproved)
-  mcp.add_tool (contract_tools.getDelegationPermissions)
-  mcp.add_tool (contract_tools.getChainInfo)
+  _add_tool_with_error_handling (mcp, contract_tools.nameToTokenId)
+  _add_tool_with_error_handling (mcp, contract_tools.tokenIdToName)
+  _add_tool_with_error_handling (mcp, contract_tools.getOwner)
+  _add_tool_with_error_handling (mcp, contract_tools.getOwnerById)
+  _add_tool_with_error_handling (mcp, contract_tools.getWchiBalance)
+  _add_tool_with_error_handling (mcp, contract_tools.getWchiAllowance)
+  _add_tool_with_error_handling (mcp, contract_tools.isApprovedForAll)
+  _add_tool_with_error_handling (mcp, contract_tools.getApproved)
+  _add_tool_with_error_handling (mcp, contract_tools.getDelegationPermissions)
+  _add_tool_with_error_handling (mcp, contract_tools.getChainInfo)
 
   # Add subgraph tools to the MCP server
-  mcp.add_tool (subgraph_tools.getNameRegistration)
-  mcp.add_tool (subgraph_tools.getNamesOwnedBy)
-  mcp.add_tool (subgraph_tools.getMovesForGame)
-  mcp.add_tool (subgraph_tools.getMovesForName)
+  _add_tool_with_error_handling (mcp, subgraph_tools.getNameRegistration)
+  _add_tool_with_error_handling (mcp, subgraph_tools.getNamesOwnedBy)
+  _add_tool_with_error_handling (mcp, subgraph_tools.getMovesForGame)
+  _add_tool_with_error_handling (mcp, subgraph_tools.getMovesForName)
 
   logger.info ("Starting Streamable HTTP transport")
   mcp.run (transport="streamable-http")

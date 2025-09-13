@@ -42,8 +42,6 @@ class Tools:
     Returns the registration info for a given name.
     """
     tokenId = self.contract_tools.nameToTokenId (ns, name)
-    if isinstance (tokenId, str) and tokenId.startswith ("Error:"):
-      return tokenId
     tokenIdHex = self._to_hex_id (tokenId)
 
     query = """
@@ -62,7 +60,7 @@ class Tools:
     data = self.subgraph.query (query)
     registrations = data["registrations"]
     if len(registrations) == 0:
-      return "Error: Name not found"
+      raise RuntimeError ("Name not found")
 
     registration = registrations[0]
 
@@ -179,8 +177,6 @@ class Tools:
     disables filtering by this timestamp.
     """
     tokenId = self.contract_tools.nameToTokenId (ns, name)
-    if isinstance (tokenId, str) and tokenId.startswith ("Error:"):
-      return tokenId
     tokenIdHex = self._to_hex_id (tokenId)
 
     conditions = [f'{{name: "{tokenIdHex}"}}']

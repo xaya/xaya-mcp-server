@@ -9,24 +9,37 @@ class Tools:
   def __init__ (self, node):
     self.node = node
 
+  def _normalize_token_id(self, token_id):
+    """
+    Normalizes a token ID to the proper format for web3.py ABI (uint256).
+    Accepts either hex string (with 0x prefix), decimal string, or integer.
+    Returns an integer suitable for uint256.
+    """
+    if isinstance(token_id, str):
+      if token_id.startswith('0x'):
+        return int(token_id, 16)
+      else:
+        return int(token_id)
+    elif isinstance(token_id, int):
+      return token_id
+    else:
+      raise ValueError(f"Token ID must be an integer or string, got {type(token_id)}")
+
+
   def nameToTokenId (self, ns, name):
     """
     Converts a Xaya name (namespace and name) to its corresponding token ID.
     """
-    try:
-      return self.node.accounts.functions.tokenIdForName (ns, name).call ()
-    except ContractLogicError as e:
-      return f"Error: {e}"
+    return self.node.accounts.functions.tokenIdForName (ns, name).call ()
 
   def tokenIdToName (self, tokenId):
     """
     Converts a token ID to its corresponding Xaya name (namespace and name).
+    tokenId can be an integer, decimal string, or hex string (with 0x prefix).
     """
-    try:
-      ns, name = self.node.accounts.functions.tokenIdToName (tokenId).call ()
-      return {"ns": ns, "name": name}
-    except ContractLogicError as e:
-      return f"Error: {e}"
+    normalized_token_id = self._normalize_token_id(tokenId)
+    ns, name = self.node.accounts.functions.tokenIdToName (normalized_token_id).call ()
+    return {"ns": ns, "name": name}
 
   def getOwner (self, ns, name):
     """
@@ -38,60 +51,55 @@ class Tools:
       return self.node.accounts.functions.ownerOf (tokenId).call ()
     except ContractLogicError as e:
       # This can happen if the name is not registered.
-      return f"Error: Name not found or error: {e}"
+      raise RuntimeError (f"Name not found or error: {e}")
 
   def getOwnerById (self, tokenId):
     """
     Gets the owner of a Xaya name by its token ID.
     Returns the owner's address if the token ID is valid, otherwise an error.
+    tokenId can be an integer, decimal string, or hex string (with 0x prefix).
     """
     try:
-      return self.node.accounts.functions.ownerOf (tokenId).call ()
+      normalized_token_id = self._normalize_token_id(tokenId)
+      return self.node.accounts.functions.ownerOf (normalized_token_id).call ()
     except ContractLogicError as e:
       # This can happen if the token ID is invalid.
-      return f"Error: Token ID not found or error: {e}"
+      raise RuntimeError (f"Token ID not found or error: {e}")
 
   def getWchiBalance (self, owner):
     """
     Gets the WCHI balance of a given address.
     The balance is returned as a formatted string with the correct number of decimals.
     """
-    try:
-      balance = self.node.wchi.functions.balanceOf (owner).call ()
-      decimals = self.node.wchi.functions.decimals ().call ()
-      return f"{balance / 10**decimals} WCHI"
-    except Exception as e:
-      return f"Error: {e}"
+    balance = self.node.wchi.functions.balanceOf (owner).call ()
+    decimals = self.node.wchi.functions.decimals ().call ()
+    return f"{balance / 10**decimals} WCHI"
 
   def getWchiAllowance (self, owner, spender):
     """
     Gets the WCHI allowance for a spender from an owner.
     The allowance is returned as a formatted string with the correct number of decimals.
     """
-    try:
-      allowance = self.node.wchi.functions.allowance (owner, spender).call ()
-      decimals = self.node.wchi.functions.decimals ().call ()
-      return f"{allowance / 10**decimals} WCHI"
-    except Exception as e:
-      return f"Error: {e}"
+    allowance = self.node.wchi.functions.allowance (owner, spender).call ()
+    decimals = self.node.wchi.functions.decimals ().call ()
+    return f"{allowance / 10**decimals} WCHI"
 
   def isApprovedForAll (self, owner, operator):
     """
     Checks if an operator is approved for all of an owner's Xaya account NFTs.
     """
-    try:
-      return self.node.accounts.functions.isApprovedForAll (owner, operator).call ()
-    except Exception as e:
-      return f"Error: {e}"
+    return self.node.accounts.functions.isApprovedForAll (owner, operator).call ()
 
   def getApproved (self, tokenId):
     """
     Gets the approved address for a single Xaya account NFT.
+    tokenId can be an integer, decimal string, or hex string (with 0x prefix).
     """
     try:
-      return self.node.accounts.functions.getApproved (tokenId).call ()
+      normalized_token_id = self._normalize_token_id(tokenId)
+      return self.node.accounts.functions.getApproved (normalized_token_id).call ()
     except ContractLogicError as e:
-      return f"Error: Token ID not found or error: {e}"
+      raise RuntimeError (f"Token ID not found or error: {e}")
 
   def getChainInfo (self):
     """
@@ -109,30 +117,22 @@ class Tools:
     Lists the delegation permissions for a given Xaya name.
     If a subject is provided, only permissions for that subject are returned.
     """
-    try:
-      tokenId = self.nameToTokenId (ns, name)
-      if isinstance (tokenId, str) and tokenId.startswith ("Error:"):
-        return tokenId
+    tokenId = self.nameToTokenId (ns, name)
+    owner = self.getOwnerById (tokenId)
 
-      owner = self.getOwnerById (tokenId)
-      if isinstance (owner, str) and owner.startswith ("Error:"):
-            return owner
+    delegationAddr = self.node.delegation.address
+    approved = self.isApprovedForAll (owner, delegationAddr)
+    if not approved:
+          approved = self.getApproved (tokenId) == delegationAddr
 
-      delegationAddr = self.node.delegation.address
-      approved = self.isApprovedForAll (owner, delegationAddr)
-      if not approved:
-            approved = self.getApproved (tokenId) == delegationAddr
+    permissions = self._getPermissions (tokenId, owner, [], subject)
 
-      permissions = self._getPermissions (tokenId, owner, [], subject)
-
-      return {
-        "owner": owner,
-        "tokenId": str(tokenId),
-        "approved": approved,
-        "permissions": permissions,
-      }
-    except Exception as e:
-      return f"Error: {e}"
+    return {
+      "owner": owner,
+      "tokenId": str(tokenId),
+      "approved": approved,
+      "permissions": permissions,
+    }
 
   def _getPermissions (self, tokenId, owner, p, subject):
     children_nodes, full_access_keys, fallback_access_keys = self.node.delegation.functions.getDefinedKeys (tokenId, owner, p).call ()

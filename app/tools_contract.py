@@ -6,8 +6,10 @@ class Tools:
   Provides tools for interacting with the Xaya blockchain smart contracts.
   """
 
-  def __init__ (self, node):
+  def __init__ (self, node, gas_config=None, operator_account=None):
     self.node = node
+    self.gas_config = gas_config
+    self.operator_account = operator_account
 
   def nameToTokenId (self, ns, name):
     """
@@ -93,16 +95,19 @@ class Tools:
     except ContractLogicError as e:
       return f"Error: Token ID not found or error: {e}"
 
-  def getChainInfo (self):
+  def getInfo (self):
     """
-    Returns the chain ID and Xaya contract addresses used by the server.
+    Returns the chain ID, Xaya contract addresses, operator address, and gas configuration used by the server.
     """
-    return {
+    info = {
       "chainId": self.node.w3.eth.chain_id,
       "wchiAddress": self.node.wchi.address,
       "accountsAddress": self.node.accounts.address,
       "delegationAddress": self.node.delegation.address,
+      "operatorAddress": self.operator_account.address if self.operator_account else None,
+      "gasGwei": self.gas_config if self.gas_config else None,
     }
+    return info
 
   def getDelegationPermissions (self, ns, name, subject=None):
     """

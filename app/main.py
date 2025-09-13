@@ -2,12 +2,15 @@
 
 import argparse
 import logging
+import os
 
 from mcp.server.fastmcp import FastMCP
+from eth_account import Account
 
 from blockchain import Node, StatsSubgraph
 from tools_contract import Tools as ContractTools
 from tools_subgraph import Tools as SubgraphTools
+from moves import Tools as MovesTools
 
 
 def main ():
@@ -41,7 +44,38 @@ def main ():
     required=True,
     help="The Graph endpoint URL for the subgraph",
   )
+  parser.add_argument (
+    "--gas_gwei_prio",
+    type=int,
+    default=0,
+    help="Priority gas price in Gwei (0 means not set)",
+  )
+  parser.add_argument (
+    "--gas_gwei_max",
+    type=int,
+    default=0,
+    help="Maximum gas price in Gwei (0 means not set)",
+  )
   args = parser.parse_args ()
+
+  # Configure gas settings
+  gas_config = None
+  if args.gas_gwei_prio > 0 or args.gas_gwei_max > 0:
+    gas_config = {}
+    if args.gas_gwei_prio > 0:
+      gas_config['prio'] = args.gas_gwei_prio
+    if args.gas_gwei_max > 0:
+      gas_config['max'] = args.gas_gwei_max
+
+  # Configure operator account from environment variable
+  operator_account = None
+  privkey = os.environ.get('PRIVKEY')
+  if privkey:
+    try:
+      operator_account = Account.from_key(privkey)
+      logger.info(f"Operator address configured: {operator_account.address}")
+    except Exception as e:
+      logger.error("Failed to create account from PRIVKEY: %s", e)
 
   try:
     node = Node (args.rpc_url, args.delegation_contract)
@@ -63,8 +97,9 @@ def main ():
   )
 
   # Create the tool providers
-  contract_tools = ContractTools (node)
+  contract_tools = ContractTools (node, gas_config, operator_account)
   subgraph_tools = SubgraphTools (subgraph, contract_tools)
+  moves_tools = MovesTools (operator_account)
 
   # Add contract tools to the MCP server
   mcp.add_tool (contract_tools.nameToTokenId)
@@ -76,13 +111,16 @@ def main ():
   mcp.add_tool (contract_tools.isApprovedForAll)
   mcp.add_tool (contract_tools.getApproved)
   mcp.add_tool (contract_tools.getDelegationPermissions)
-  mcp.add_tool (contract_tools.getChainInfo)
+  mcp.add_tool (contract_tools.getInfo)
 
   # Add subgraph tools to the MCP server
   mcp.add_tool (subgraph_tools.getNameRegistration)
   mcp.add_tool (subgraph_tools.getNamesOwnedBy)
   mcp.add_tool (subgraph_tools.getMovesForGame)
   mcp.add_tool (subgraph_tools.getMovesForName)
+
+  # Add moves tools to the MCP server
+  mcp.add_tool (moves_tools.hasMovePermission)
 
   logger.info ("Starting Streamable HTTP transport")
   mcp.run (transport="streamable-http")

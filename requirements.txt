@@ -1,2 +1,3 @@
+eth_account
 mcp[cli]
 web3

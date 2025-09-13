@@ -6,8 +6,33 @@ class Tools:
   Provides tools for interacting with the Xaya blockchain smart contracts.
   """
 
-  def __init__ (self, node):
+  def __init__ (self, node, gas_config=None, operator_account=None):
     self.node = node
+    self.gas_config = gas_config
+    self.operator_account = operator_account
+
+  async def isApproved (self, owner, tokenId, address):
+    """
+    Helper method to check if an address is approved for a token (either for all or specific token).
+    
+    Args:
+      owner: The owner of the token
+      tokenId: The token ID to check
+      address: The address to check approval for
+    
+    Returns:
+      True if approved, False if not approved
+    """
+    # Check if the address is approved for all NFTs of the owner
+    approved_for_all = await self.isApprovedForAll(owner, address)
+    
+    if approved_for_all:
+      return True
+    
+    # Check if the address is approved for this specific token
+    approved_address = await self.getApproved(tokenId)
+    
+    return approved_address == address
 
   def _normalize_token_id(self, token_id):
     """
@@ -101,15 +126,17 @@ class Tools:
     except ContractLogicError as e:
       raise RuntimeError (f"Token ID not found or error: {e}")
 
-  async def getChainInfo (self):
+  async def getInfo (self):
     """
-    Returns the chain ID and Xaya contract addresses used by the server.
+    Returns the chain ID, Xaya contract addresses, operator address, and gas configuration used by the server.
     """
     return {
       "chainId": await self.node.w3.eth.chain_id,
       "wchiAddress": self.node.wchi.address,
       "accountsAddress": self.node.accounts.address,
       "delegationAddress": self.node.delegation.address,
+      "operatorAddress": self.operator_account.address if self.operator_account else None,
+      "gasGwei": self.gas_config if self.gas_config else None,
     }
 
   async def getDelegationPermissions (self, ns, name, subject=None):
@@ -121,9 +148,7 @@ class Tools:
     owner = await self.getOwnerById (tokenId)
 
     delegationAddr = self.node.delegation.address
-    approved = await self.isApprovedForAll (owner, delegationAddr)
-    if not approved:
-          approved = await self.getApproved (tokenId) == delegationAddr
+    approved = await self.isApproved (owner, tokenId, delegationAddr)
 
     permissions = await self._getPermissions (tokenId, owner, [], subject)
 

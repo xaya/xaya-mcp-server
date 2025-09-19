@@ -1,2 +1,4 @@
+anyio
+httpx
 mcp[cli]
 web3

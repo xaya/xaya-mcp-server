@@ -37,11 +37,11 @@ class Tools:
 
     return '0x' + token_bytes.hex()
 
-  def getNameRegistration (self, ns, name):
+  async def getNameRegistration (self, ns, name):
     """
     Returns the registration info for a given name.
     """
-    tokenId = self.contract_tools.nameToTokenId (ns, name)
+    tokenId = await self.contract_tools.nameToTokenId (ns, name)
     tokenIdHex = self._to_hex_id (tokenId)
 
     query = """
@@ -57,7 +57,7 @@ class Tools:
         }}
       }}
     """.format (tokenId=tokenIdHex)
-    data = self.subgraph.query (query)
+    data = await self.subgraph.query (query)
     registrations = data["registrations"]
     if len(registrations) == 0:
       raise RuntimeError ("Name not found")
@@ -70,7 +70,7 @@ class Tools:
       "timestamp": registration["tx"]["timestamp"]
     }
 
-  def getNamesOwnedBy (self, owner, offset=0):
+  async def getNamesOwnedBy (self, owner, offset=0):
     """
     Returns a batch of names owned by a given address.
     """
@@ -90,7 +90,7 @@ class Tools:
         }}
       }}
     """.format (owner=owner, limit=BATCH_SIZE + 1, offset=offset)
-    data = self.subgraph.query (query)
+    data = await self.subgraph.query (query)
     names = data["names"]
 
     more = False
@@ -103,7 +103,7 @@ class Tools:
       "more": more,
     }
 
-  def getMovesForGame (self, game, fromTimestamp=None, toTimestamp=None, offset=0):
+  async def getMovesForGame (self, game, fromTimestamp=None, toTimestamp=None, offset=0):
     """
     Returns a batch of moves for a given game, ordered newest first, optionally
     filtered within a range of timestamps.  Using null for either timestamp
@@ -146,7 +146,7 @@ class Tools:
         }}
       }}
     """.format (where=where, limit=BATCH_SIZE + 1, offset=offset)
-    data = self.subgraph.query (query)
+    data = await self.subgraph.query (query)
     moves = data["gameMoves"]
 
     more = False
@@ -170,13 +170,13 @@ class Tools:
       "more": more,
     }
 
-  def getMovesForName (self, ns, name, fromTimestamp=None, toTimestamp=None, offset=0):
+  async def getMovesForName (self, ns, name, fromTimestamp=None, toTimestamp=None, offset=0):
     """
     Returns a batch of moves for a given name, ordered newest first, optionally
     filtered within a range of timestamps.  Using null for either timestamp
     disables filtering by this timestamp.
     """
-    tokenId = self.contract_tools.nameToTokenId (ns, name)
+    tokenId = await self.contract_tools.nameToTokenId (ns, name)
     tokenIdHex = self._to_hex_id (tokenId)
 
     conditions = [f'{{name: "{tokenIdHex}"}}']
@@ -209,7 +209,7 @@ class Tools:
         }}
       }}
     """.format (conditions=conditions, limit=BATCH_SIZE + 1, offset=offset)
-    data = self.subgraph.query (query)
+    data = await self.subgraph.query (query)
     moves = data["moves"]
 
     more = False

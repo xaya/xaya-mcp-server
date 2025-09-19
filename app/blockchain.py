@@ -1,9 +1,9 @@
 import json
 import logging
 import os.path
-import requests
+import httpx
 
-from web3 import Web3
+from web3 import AsyncWeb3, AsyncHTTPProvider
 from web3.middleware import ExtraDataToPOAMiddleware
 
 class StatsSubgraph:
@@ -13,15 +13,16 @@ class StatsSubgraph:
 
   def __init__ (self, url):
     self.url = url
+    self.client = httpx.AsyncClient()
 
-  def query (self, query):
+  async def query (self, query):
     """
     Runs a GraphQL query against the configured subgraph.
     If the query is successful, the `data` object from the response
     is returned.  Otherwise an exception is raised.
     """
-    logging.info ("Running GraphQL query:\\n%s", query)
-    r = requests.post (self.url, json={"query": query})
+    logging.debug ("Running GraphQL query:\\n%s", query)
+    r = await self.client.post (self.url, json={"query": query})
     r.raise_for_status ()
     res = r.json ()
     if "errors" in res:
@@ -33,14 +34,24 @@ class Node:
   Represents the connection to a blockchain node and the Xaya contracts.
   """
 
-  def __init__ (self, rpcUrl, delegationContract):
+  def __init__ (self):
     """
-    Initialises the instance and connects to the contracts.
+    Initialises the instance.  This is private, use `create` to
+    construct an instance properly.
+    """
+    pass
+
+  @staticmethod
+  async def create (rpcUrl, delegationContract):
+    """
+    Factory method to create a new instance and connect to the contracts.
     """
 
+    res = Node ()
+
     logging.info ("Setting up Web3 connection to %s", rpcUrl)
-    self.w3 = Web3 (Web3.HTTPProvider (rpcUrl))
-    self.w3.middleware_onion.inject (ExtraDataToPOAMiddleware, layer=0)
+    res.w3 = AsyncWeb3(AsyncHTTPProvider(rpcUrl))
+    res.w3.middleware_onion.inject (ExtraDataToPOAMiddleware, layer=0)
 
     # Determine base path for loading ABIs.
     myPath = os.path.dirname (__file__)
@@ -53,16 +64,19 @@ class Node:
     with open (os.path.join (abiPath, "XayaDelegation.json"), "r") as f:
       delegationAbi = json.load (f)
 
-    self.delegation = self.w3.eth.contract (address=delegationContract,
+
+    res.delegation = res.w3.eth.contract (address=delegationContract,
                                               abi=delegationAbi["abi"])
-    accountsAddr = self.delegation.functions.accounts ().call ()
-    self.accounts = self.w3.eth.contract (address=accountsAddr,
+    accountsAddr = await res.delegation.functions.accounts ().call ()
+    res.accounts = res.w3.eth.contract (address=accountsAddr,
                                            abi=accountsAbi["abi"])
-    wchiAddr = self.accounts.functions.wchiToken ().call ()
-    self.wchi = self.w3.eth.contract (address=wchiAddr, abi=wchiAbi["abi"])
+    wchiAddr = await res.accounts.functions.wchiToken ().call ()
+    res.wchi = res.w3.eth.contract (address=wchiAddr, abi=wchiAbi["abi"])
 
-    logging.info ("Connected to chain ID: %d", self.w3.eth.chain_id)
-    logging.info ("WCHI contract at %s", self.wchi.address)
-    logging.info ("Xaya Accounts contract at %s", self.accounts.address)
-    logging.info ("Xaya Delegation contract at %s", self.delegation.address)
+    chainId = await res.w3.eth.chain_id
+    logging.info ("Connected to chain ID: %d", chainId)
+    logging.info ("WCHI contract at %s", res.wchi.address)
+    logging.info ("Xaya Accounts contract at %s", res.accounts.address)
+    logging.info ("Xaya Delegation contract at %s", res.delegation.address)
 
+    return res

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import anyio
 import functools
 import logging
 
@@ -17,15 +18,15 @@ def _add_tool_with_error_handling(mcp, tool_func):
   Wraps the tool function to catch any exceptions and return them as "Error: ..." strings.
   """
   @functools.wraps(tool_func)
-  def wrapper(*args, **kwargs):
+  async def wrapper(*args, **kwargs):
     try:
-      return tool_func(*args, **kwargs)
+      return await tool_func(*args, **kwargs)
     except Exception as e:
       return f"Error: {e}"
   
   mcp.add_tool(wrapper)
 
-def main ():
+async def main ():
   # Configure logging
   logging.basicConfig (
     level=logging.INFO,
@@ -59,7 +60,7 @@ def main ():
   args = parser.parse_args ()
 
   try:
-    node = Node (args.rpc_url, args.delegation_contract)
+    node = await Node.create (args.rpc_url, args.delegation_contract)
     subgraph = StatsSubgraph (args.subgraph)
   except Exception as e:
     logger.error ("Failed to initialize blockchain node: %s", e)
@@ -100,8 +101,11 @@ def main ():
   _add_tool_with_error_handling (mcp, subgraph_tools.getMovesForName)
 
   logger.info ("Starting Streamable HTTP transport")
-  mcp.run (transport="streamable-http")
+  await mcp.run_streamable_http_async ()
 
 
 if __name__ == "__main__":
-  main ()
+  try:
+    anyio.run (main)
+  except KeyboardInterrupt:
+    pass

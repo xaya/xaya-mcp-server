@@ -27,11 +27,6 @@ def _add_tool_with_error_handling(mcp, tool_func):
   mcp.add_tool(wrapper)
 
 async def main ():
-  # Configure logging
-  logging.basicConfig (
-    level=logging.INFO,
-    format="%(levelname)s:     %(message)s",
-  )
   logger = logging.getLogger ("xaya-mcp")
 
   # Parse command-line arguments
@@ -57,7 +52,19 @@ async def main ():
     required=True,
     help="The Graph endpoint URL for the subgraph",
   )
+  parser.add_argument (
+    "--log_level",
+    default="INFO",
+    help="Set the log level (e.g., DEBUG, INFO, WARNING)",
+  )
   args = parser.parse_args ()
+
+  # Update logging level from arguments
+  logging.basicConfig (
+    level=args.log_level.upper(),
+    format="%(levelname)s:     %(message)s",
+  )
+  logger = logging.getLogger ("xaya-mcp")
 
   try:
     node = await Node.create (args.rpc_url, args.delegation_contract)
@@ -75,7 +82,7 @@ async def main ():
     port=args.port,
     host="0.0.0.0",
     debug=False,
-    log_level="INFO",
+    log_level=args.log_level.upper(),
   )
 
   # Create the tool providers

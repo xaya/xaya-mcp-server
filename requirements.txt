@@ -1,4 +1,5 @@
 anyio
+eth_account
 httpx
 mcp[cli]
 web3

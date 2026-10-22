@@ -6,7 +6,7 @@ import functools
 import logging
 import os
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 from eth_account import Account
 
 from blockchain import Node, StatsSubgraph
@@ -108,13 +108,11 @@ async def main ():
     return
 
   logger.info (f"Initializing Xaya MCP server on 0.0.0.0:{args.port}")
-  logger.info (f"Streamable HTTP endpoint will be available at http://0.0.0.0:{args.port}/mcp/")
+  logger.info (f"Streamable HTTP endpoint will be available at http://0.0.0.0:{args.port}/mcp")
 
   # Create the MCP server
-  mcp = FastMCP (
+  mcp = MCPServer (
     "Xaya MCP",
-    port=args.port,
-    host="0.0.0.0",
     debug=False,
     log_level=args.log_level.upper(),
   )
@@ -149,7 +147,10 @@ async def main ():
   _add_tool_with_error_handling (mcp, moves_tools.waitForTransactions)
 
   logger.info ("Starting Streamable HTTP transport")
-  await mcp.run_streamable_http_async ()
+  await mcp.run_streamable_http_async (
+    host="0.0.0.0",
+    port=args.port,
+  )
 
 
 if __name__ == "__main__":

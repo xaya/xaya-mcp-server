@@ -1,5 +1,5 @@
 anyio
 eth_account
 httpx
-mcp[cli]
+mcp[cli]>=2,<3
 web3

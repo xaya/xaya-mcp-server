@@ -1,5 +1,7 @@
 # Use the official Python slim image as a parent image
 FROM python:3-slim
+RUN apt update && apt -y install \
+  build-essential
 
 # Set the working directory in the container
 WORKDIR /usr/src
